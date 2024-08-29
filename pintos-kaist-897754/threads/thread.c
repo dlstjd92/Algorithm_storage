@@ -111,6 +111,7 @@ thread_init (void) {
 	list_init (&ready_list);
 	list_init (&sleep_list);
 	list_init (&destruction_req);
+	
 
 	/* Set up a thread structure for the running thread. */
 	initial_thread = running_thread ();
@@ -206,6 +207,8 @@ thread_create (const char *name, int priority,
 	t->tf.cs = SEL_KCSEG;
 	t->tf.eflags = FLAG_IF;
 
+	// t->have_locks = 0; //초기화용 추가 폐기
+	
 	/* Add to run queue. */
 	thread_unblock (t);
 
@@ -237,9 +240,9 @@ thread_block (void) {
 void
 thread_unblock (struct thread *t) {
 	enum intr_level old_level;
-
+	
 	ASSERT (is_thread (t));
-
+	
 	old_level = intr_disable ();
 	ASSERT (t->status == THREAD_BLOCKED);
 	//list_push_back (&ready_list, &t->elem);
@@ -426,6 +429,8 @@ init_thread (struct thread *t, const char *name, int priority) {
 	t->tf.rsp = (uint64_t) t + PGSIZE - sizeof (void *);
 	t->priority = priority;
 	t->magic = THREAD_MAGIC;
+
+	list_init(&t->lock_list); // 이사한 이니시코드
 }
 
 /* Chooses and returns the next thread to be scheduled.  Should

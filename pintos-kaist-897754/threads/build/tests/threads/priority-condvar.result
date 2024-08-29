@@ -1,75 +1,15 @@
 FAIL
-Test output failed to match any acceptable form.
-
-Acceptable output:
-  (priority-condvar) begin
-  (priority-condvar) Thread priority 23 starting.
-  (priority-condvar) Thread priority 22 starting.
-  (priority-condvar) Thread priority 21 starting.
-  (priority-condvar) Thread priority 30 starting.
-  (priority-condvar) Thread priority 29 starting.
-  (priority-condvar) Thread priority 28 starting.
-  (priority-condvar) Thread priority 27 starting.
-  (priority-condvar) Thread priority 26 starting.
-  (priority-condvar) Thread priority 25 starting.
-  (priority-condvar) Thread priority 24 starting.
-  (priority-condvar) Signaling...
-  (priority-condvar) Thread priority 30 woke up.
-  (priority-condvar) Signaling...
-  (priority-condvar) Thread priority 29 woke up.
-  (priority-condvar) Signaling...
-  (priority-condvar) Thread priority 28 woke up.
-  (priority-condvar) Signaling...
-  (priority-condvar) Thread priority 27 woke up.
-  (priority-condvar) Signaling...
-  (priority-condvar) Thread priority 26 woke up.
-  (priority-condvar) Signaling...
-  (priority-condvar) Thread priority 25 woke up.
-  (priority-condvar) Signaling...
-  (priority-condvar) Thread priority 24 woke up.
-  (priority-condvar) Signaling...
-  (priority-condvar) Thread priority 23 woke up.
-  (priority-condvar) Signaling...
-  (priority-condvar) Thread priority 22 woke up.
-  (priority-condvar) Signaling...
-  (priority-condvar) Thread priority 21 woke up.
-  (priority-condvar) end
-Differences in `diff -u' format:
-  (priority-condvar) begin
-  (priority-condvar) Thread priority 23 starting.
-  (priority-condvar) Thread priority 22 starting.
-  (priority-condvar) Thread priority 21 starting.
-  (priority-condvar) Thread priority 30 starting.
-  (priority-condvar) Thread priority 29 starting.
-  (priority-condvar) Thread priority 28 starting.
-  (priority-condvar) Thread priority 27 starting.
-  (priority-condvar) Thread priority 26 starting.
-  (priority-condvar) Thread priority 25 starting.
-  (priority-condvar) Thread priority 24 starting.
-  (priority-condvar) Signaling...
-+ (priority-condvar) Thread priority 23 woke up.
-+ (priority-condvar) Signaling...
-+ (priority-condvar) Thread priority 22 woke up.
-+ (priority-condvar) Signaling...
-+ (priority-condvar) Thread priority 21 woke up.
-+ (priority-condvar) Signaling...
-  (priority-condvar) Thread priority 30 woke up.
-  (priority-condvar) Signaling...
-  (priority-condvar) Thread priority 29 woke up.
-  (priority-condvar) Signaling...
-  (priority-condvar) Thread priority 28 woke up.
-  (priority-condvar) Signaling...
-  (priority-condvar) Thread priority 27 woke up.
-  (priority-condvar) Signaling...
-  (priority-condvar) Thread priority 26 woke up.
-  (priority-condvar) Signaling...
-  (priority-condvar) Thread priority 25 woke up.
-  (priority-condvar) Signaling...
-  (priority-condvar) Thread priority 24 woke up.
-- (priority-condvar) Signaling...
-- (priority-condvar) Thread priority 23 woke up.
-- (priority-condvar) Signaling...
-- (priority-condvar) Thread priority 22 woke up.
-- (priority-condvar) Signaling...
-- (priority-condvar) Thread priority 21 woke up.
-  (priority-condvar) end
+Kernel panic in run: PANIC at ../../threads/interrupt.c:361 in intr_handler(): Unexpected interrupt
+Call stack: 0x80042136e5 0x8004208a05 0x8004208db7 0x8004213907 0x8004214105 0x800420a157 0x80042196b0 0x8004216b21 0x8004206636 0x8004206783 0x8004206120
+Translation of call stack:
+0x00000080042136e5: debug_panic (lib/kernel/debug.c:32)
+0x0000008004208a05: intr_handler (threads/interrupt.c:365)
+0x0000008004208db7: intr_entry (threads/intr-stubs.o:?)
+0x0000008004213907: list_next (lib/kernel/list.c:78)
+0x0000008004214105: list_size (lib/kernel/list.c:289 (discriminator 3))
+0x000000800420a157: lock_release (threads/synch.c:282)
+0x00000080042196b0: test_priority_condvar (tests/threads/priority-condvar.c:36 (discriminator 3))
+0x0000008004216b21: run_test (tests/threads/tests.c:57)
+0x0000008004206636: run_task (threads/init.c:252)
+0x0000008004206783: run_actions (threads/init.c:297)
+0x0000008004206120: main (threads/init.c:125)

@@ -94,6 +94,9 @@ struct thread {
 
 	int64_t wakeTime;
 
+	// int have_locks; 폐기
+	struct list lock_list;
+
 	/* Shared between thread.c and synch.c. */
 	struct list_elem elem;              /* List element. */
 

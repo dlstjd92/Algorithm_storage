@@ -18,8 +18,11 @@ void sema_self_test (void);
 
 /* Lock. */
 struct lock {
+	struct list_elem elem; // 이렇게 하면 구조체 필요 없음
 	struct thread *holder;      /* Thread holding lock (for debugging). */
 	struct semaphore semaphore; /* Binary semaphore controlling access. */
+	struct list donate;
+	
 };
 
 void lock_init (struct lock *);

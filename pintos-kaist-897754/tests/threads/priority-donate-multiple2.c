@@ -41,21 +41,21 @@ test_priority_donate_multiple2 (void)
   lock_acquire (&a);
   lock_acquire (&b);
 
-  thread_create ("a", PRI_DEFAULT + 3, a_thread_func, &a);
+  thread_create ("a", PRI_DEFAULT + 3, a_thread_func, &a); // 34
   msg ("Main thread should have priority %d.  Actual priority: %d.",
        PRI_DEFAULT + 3, thread_get_priority ());
 
-  thread_create ("c", PRI_DEFAULT + 1, c_thread_func, NULL);
+  thread_create ("c", PRI_DEFAULT + 1, c_thread_func, NULL); // 32
 
-  thread_create ("b", PRI_DEFAULT + 5, b_thread_func, &b);
+  thread_create ("b", PRI_DEFAULT + 5, b_thread_func, &b); // 36
   msg ("Main thread should have priority %d.  Actual priority: %d.",
        PRI_DEFAULT + 5, thread_get_priority ());
 
-  lock_release (&a);
+  lock_release (&a); // a 릴리즈
   msg ("Main thread should have priority %d.  Actual priority: %d.",
        PRI_DEFAULT + 5, thread_get_priority ());
 
-  lock_release (&b);
+  lock_release (&b); // b 릴리즈
   msg ("Threads b, a, c should have just finished, in that order.");
   msg ("Main thread should have priority %d.  Actual priority: %d.",
        PRI_DEFAULT, thread_get_priority ());

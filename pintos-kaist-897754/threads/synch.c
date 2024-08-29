@@ -31,6 +31,7 @@
 #include <string.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
+#include "list.h" // 리스트 관련 헤더 파일
 
 /* Initializes semaphore SEMA to VALUE.  A semaphore is a
    nonnegative integer along with two atomic operators for
@@ -181,7 +182,9 @@ lock_init (struct lock *lock) {
 	ASSERT (lock != NULL);
 
 	lock->holder = NULL;
+	// lock->donated = NULL; 
 	sema_init (&lock->semaphore, 1);
+	list_init(&lock->donate);// 추가했음
 }
 
 /* Acquires LOCK, sleeping until it becomes available if
@@ -192,13 +195,49 @@ lock_init (struct lock *lock) {
    interrupt handler.  This function may be called with
    interrupts disabled, but interrupts will be turned back on if
    we need to sleep. */
+
+struct donation { // 도네이션 리스트용 구조체
+    struct list_elem elem; // 리스트의 요소
+    int priority; // 기부된 우선순위
+	struct thread* thread; // 원 주인
+};
+
+struct lock_pair { // 스레드가 가지고 있는 락 리스트
+    struct list_elem elem; // 리스트의 요소
+    struct lock* lock; // 스레드가 소유한 락에 대한 포인터
+};
+
 void
 lock_acquire (struct lock *lock) {
 	ASSERT (lock != NULL);
 	ASSERT (!intr_context ());
 	ASSERT (!lock_held_by_current_thread (lock));
+	struct donation *new_donation;
 
+	if (lock->holder != NULL && thread_current()->priority > lock->holder->priority)
+	{
+		
+
+		// new_donation->priority = lock->holder->priority; //값을 저장해서
+		// msg("%d",lock->holder->priority);
+		// new_donation->thread = lock->holder; // 기부한 스레드 설정
+
+		list_push_back(&lock->donate, &new_donation->elem); // 담고
+		// lock->holder->have_locks += 1; // 여기서 락 개수 on
+		// msg("어콰이어 %d %s ", thread_current()->priority, thread_current()->name);
+
+		lock->holder->priority = thread_current()->priority; // 교체
+
+	}
+	list_push_back(&thread_current()->lock_list, &lock->elem);
+	// if (lock->holder != NULL)
+	// {
+	// 	// struct lock_ *new_lock_list = (struct lock_list *) malloc(sizeof(struct lock_list)); // 락 리스트
+	// 	// new_lock_list->lock = lock; // 이게 무엇이냐..
+		
+	// }
 	sema_down (&lock->semaphore);
+
 	lock->holder = thread_current ();
 }
 
@@ -232,7 +271,31 @@ lock_release (struct lock *lock) {
 	ASSERT (lock != NULL);
 	ASSERT (lock_held_by_current_thread (lock));
 
-	lock->holder = NULL;
+	lock->holder = NULL; // 홀더 없에기
+
+	if (!list_empty(&lock->donate))
+	{
+		struct list_elem *num = list_pop_back(&lock->donate);
+		struct donation *donated = list_entry(num, struct donation, elem);
+		
+		struct list_elem *lock_elem = &lock->elem; // 락
+		msg("%d", list_size(&donated->thread->lock_list));
+		list_remove(lock_elem);
+		
+
+        if (list_empty(&donated->thread->lock_list)) {
+			msg("여길 들어오나? %d", donated->priority);
+            donated->thread->priority = donated->priority;
+        } 
+		else {
+            // 비어 있지 않은 경우, 가장 높은 우선순위를 적용
+			// list_entry(list_front(&), struct lock, elem);
+			
+			// msg("이게 먼저 출력되어야 해 %s %d size : %d", donated->thread->name, donated->thread->priority, (int)list_size(&donated->thread->lock_list));
+            // donated->thread->priority = find_highest_priority(&donated->thread->lock_list);
+        }
+		// free(donated);
+	}
 	sema_up (&lock->semaphore);
 }
 

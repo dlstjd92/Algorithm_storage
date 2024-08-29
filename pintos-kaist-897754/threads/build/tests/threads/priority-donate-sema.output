@@ -9,12 +9,11 @@ Boot complete.
 Executing 'priority-donate-sema':
 (priority-donate-sema) begin
 (priority-donate-sema) Thread L acquired lock.
-(priority-donate-sema) Thread M finished.
-(priority-donate-sema) Main thread finished.
-(priority-donate-sema) end
-Execution of 'priority-donate-sema' complete.
-Timer: 22 ticks
-Thread: 0 idle ticks, 22 kernel ticks, 0 user ticks
-Console: 591 characters output
-Keyboard: 0 keys pressed
-Powering off...
+Kernel PANIC at ../../lib/kernel/list.c:159 in list_insert(): assertion `elem != NULL' failed.
+Call stack: 0x80042136e5 0x8004213c74 0x8004213ed6 0x8004209ed2 0x8004218ae4 0x8004207227.
+The `backtrace' program can make call stacks useful.
+Read "Backtraces" in the "Debugging Tools" chapter
+of the Pintos documentation for more information.
+Timer: 21 ticks
+Thread: 0 idle ticks, 21 kernel ticks, 0 user ticks
+Console: 
