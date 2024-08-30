@@ -95,14 +95,16 @@ struct thread {
 
 	int64_t wakeTime;
 
-	// int have_locks; 폐기
+	
 	// 새로 선언한 구조들
 	struct list donated;
 	struct lock* wait_on_lock;
+
 	struct list_elem donate_elem;
 
 	int origin_priority;
-
+	
+	struct lock* have_locks;
 	/* Shared between thread.c and synch.c. */
 	struct list_elem elem;              /* List element. */
 

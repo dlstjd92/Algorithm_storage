@@ -59,6 +59,9 @@ static bool priority_less (const struct list_elem *a_,
   
   return a->priority > b->priority;
 }
+
+
+
 /* Down or "P" operation on a semaphore.  Waits for SEMA's value
    to become positive and then atomically decrements it.
 
@@ -78,7 +81,10 @@ sema_down (struct semaphore *sema) {
 	/*while*/if (sema->value == 0) {
 		// list_push_back (&sema->waiters, &thread_current ()->elem);
 		list_insert_ordered(&sema->waiters, &thread_current ()->elem, priority_less, NULL);
+		
 		thread_block ();
+		// Thread_Preempt();
+		
 	}
 	sema->value--;
 	intr_set_level (old_level);
@@ -113,19 +119,59 @@ sema_try_down (struct semaphore *sema) {
    and wakes up one thread of those waiting for SEMA, if any.
 
    This function may be called from an interrupt handler. */
+static bool sema_priority_less (const struct list_elem *a_, 
+	const struct list_elem *b_, void *aux UNUSED)
+{
+  const struct thread *a = list_entry (a_, struct thread, elem);
+  const struct thread *b = list_entry (b_, struct thread, elem);
+  
+  return a->priority < b->priority;
+}
+
+
 void
 sema_up (struct semaphore *sema) {
 	enum intr_level old_level;
+	struct list_elem* max;
 
 	ASSERT (sema != NULL);
 
 	old_level = intr_disable ();
 	if (!list_empty (&sema->waiters))
-		thread_unblock (list_entry (list_pop_front (&sema->waiters),
-					struct thread, elem));
+	{
+		// thread_unblock(쓰레드 들어와야함)
+		// 내가 비교해야되는거 세마 웨이터스의 priority
+		max = list_max(&sema->waiters, sema_priority_less, NULL);
+		//  list_max(&cond->waiters, sema_greater, NULL);
+		// msg("%s", list_entry (max, struct thread, elem)->name );
+		// list_front(&sema->waiters);
+		list_remove(max);
+		// sema_up(&list_entry(max, struct semaphore_elem, elem)->semaphore);
+		thread_unblock (list_entry (max, struct thread, elem));
+		// list_sort(&sema->waiters, sema_priority_less, NULL);
+		// thread_unblock (list_entry (list_pop_front (&sema->waiters),
+		// 			struct thread, elem));
+	}
 	sema->value++;
 	intr_set_level (old_level);
 }
+
+// void
+// sema_up (struct semaphore *sema) {
+//    enum intr_level old_level;
+
+//    ASSERT (sema != NULL);
+
+//    old_level = intr_disable ();
+//    sema->value++;
+//    if (!list_empty (&sema->waiters))
+//    {
+//       struct list_elem* mx = list_max(&sema->waiters, sema_priority_less, NULL);
+//       list_remove(mx);
+//       thread_unblock (list_entry (mx, struct thread, elem));
+//    }
+//    intr_set_level (old_level);
+// }
 
 static void sema_test_helper (void *sema_);
 
@@ -184,7 +230,7 @@ lock_init (struct lock *lock) {
 	lock->holder = NULL;
 	// lock->donated = NULL; 
 	sema_init (&lock->semaphore, 1);
-	list_init(&lock->donate);// 추가했음
+	// list_init(&lock->donate);// 추가했음
 }
 
 /* Acquires LOCK, sleeping until it becomes available if
@@ -227,6 +273,7 @@ lock_acquire (struct lock *lock) {
   	sema_down (&lock->semaphore);
   
   	cur->wait_on_lock = NULL;
+	cur -> have_locks = lock;
   	lock->holder = cur;
 }
 

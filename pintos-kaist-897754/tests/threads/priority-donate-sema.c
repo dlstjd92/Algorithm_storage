@@ -42,6 +42,7 @@ test_priority_donate_sema (void)
   thread_create ("low", PRI_DEFAULT + 1, l_thread_func, &ls);
   thread_create ("med", PRI_DEFAULT + 3, m_thread_func, &ls);
   thread_create ("high", PRI_DEFAULT + 5, h_thread_func, &ls);
+  // msg ("%d main 스레드", thread_current()->priority);
   sema_up (&ls.sema);
   msg ("Main thread finished.");
 }
@@ -51,8 +52,10 @@ l_thread_func (void *ls_)
 {
   struct lock_and_sema *ls = ls_;
 
+  // msg ("%d l 스레드", thread_current()->priority);
   lock_acquire (&ls->lock);
   msg ("Thread L acquired lock.");
+  // msg ("%d l 스레드 잠겨?", thread_current()->priority);
   sema_down (&ls->sema);
   msg ("Thread L downed semaphore.");
   lock_release (&ls->lock);
@@ -62,6 +65,7 @@ l_thread_func (void *ls_)
 static void
 m_thread_func (void *ls_) 
 {
+  // msg ("%d m 스레드", thread_current()->priority);
   struct lock_and_sema *ls = ls_;
 
   sema_down (&ls->sema);
@@ -71,6 +75,7 @@ m_thread_func (void *ls_)
 static void
 h_thread_func (void *ls_) 
 {
+  // msg ("%d h 스레드", thread_current()->priority);
   struct lock_and_sema *ls = ls_;
 
   lock_acquire (&ls->lock);

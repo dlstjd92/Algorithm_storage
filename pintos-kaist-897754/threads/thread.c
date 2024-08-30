@@ -334,10 +334,21 @@ thread_yield (void) {
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void
 thread_set_priority (int new_priority) {
+
+	// 아무튼 락을 가지고 있는 상태에서 프리오리티가 변할떄도 홀드를 해야함 -> 릴리즈때 풀려야함
+	struct thread* cur = thread_current();
+
+	if (!list_empty(&cur->donated))
+    {
+		// cur->wait_on_lock = cur->have_locks;
+    	thread_current ()->origin_priority = new_priority;
+	}
+	else {
 	thread_current ()->priority = new_priority;
 	thread_current ()->origin_priority = new_priority;
 
 	thread_yield();
+	}
 }
 
 /* Returns the current thread's priority. */
@@ -438,6 +449,7 @@ init_thread (struct thread *t, const char *name, int priority) {
 
 	t->origin_priority = priority;
   	t->wait_on_lock = NULL;
+	t->have_locks = NULL;
 
 	list_init(&t->donated); // 이사한 이니시코드
 }
@@ -719,19 +731,13 @@ refresh_priority (void) // 이식 3
 {
   	struct thread *cur = thread_current ();
 
-	// msg("전 %s %d", thread_current()->name, thread_current()->priority);
   	cur->priority = cur->origin_priority;
-	// msg("후 %s %d", thread_current()->name, thread_current()->priority);
-	
 
   	if (!list_empty (&cur->donated)) {
     	list_sort (&cur->donated, thread_compare_donate_priority, 0);
 
-	// msg("%s %d", thread_current()->name, thread_current()->priority);
-
     struct thread *front = list_entry (list_front (&cur->donated), struct thread, donate_elem);
     if (front->priority > cur->priority)
-		// msg("%s %d %d", thread_current()->name, thread_current()->priority, front->priority);
       	cur->priority = front->priority;
   }
 }
