@@ -1,0 +1,11 @@
+*.output
+*.o
+*.O
+*.result
+*.errors
+*.bin
+*.d
+*.s
+*.dsk
+Makefile
+results

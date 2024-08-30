@@ -5,6 +5,7 @@
 #include <list.h>
 #include <stdint.h>
 #include "threads/interrupt.h"
+#include "threads/synch.h"
 #ifdef VM
 #include "vm/vm.h"
 #endif
@@ -95,7 +96,12 @@ struct thread {
 	int64_t wakeTime;
 
 	// int have_locks; 폐기
-	struct list lock_list;
+	// 새로 선언한 구조들
+	struct list donated;
+	struct lock* wait_on_lock;
+	struct list_elem donate_elem;
+
+	int origin_priority;
 
 	/* Shared between thread.c and synch.c. */
 	struct list_elem elem;              /* List element. */
@@ -158,3 +164,16 @@ void Thread_Preempt();
 static bool sleep_less (const struct list_elem *a_, const struct list_elem *b_, void *aux UNUSED);
 
 static bool priority_less (const struct list_elem *a_, const struct list_elem *b_, void *aux UNUSED);
+
+bool
+thread_compare_donate_priority (const struct list_elem *l, 
+				const struct list_elem *s, void *aux UNUSED);
+
+void
+donate_priority (void);
+
+void
+remove_with_lock (struct lock *lock);
+
+void
+refresh_priority (void);

@@ -184,15 +184,19 @@ thread_create (const char *name, int priority,
 		thread_func *function, void *aux) {
 	struct thread *t;
 	tid_t tid;
+	
 
 	ASSERT (function != NULL);
 
 	/* Allocate thread. */
+	
 	t = palloc_get_page (PAL_ZERO);
+	
 	if (t == NULL)
 		return TID_ERROR;
-
+	
 	/* Initialize thread. */
+	
 	init_thread (t, name, priority);
 	tid = t->tid = allocate_tid ();
 
@@ -239,8 +243,8 @@ thread_block (void) {
    update other data. */
 void
 thread_unblock (struct thread *t) {
-	enum intr_level old_level;
 	
+	enum intr_level old_level;
 	ASSERT (is_thread (t));
 	
 	old_level = intr_disable ();
@@ -331,6 +335,8 @@ thread_yield (void) {
 void
 thread_set_priority (int new_priority) {
 	thread_current ()->priority = new_priority;
+	thread_current ()->origin_priority = new_priority;
+
 	thread_yield();
 }
 
@@ -430,7 +436,10 @@ init_thread (struct thread *t, const char *name, int priority) {
 	t->priority = priority;
 	t->magic = THREAD_MAGIC;
 
-	list_init(&t->lock_list); // 이사한 이니시코드
+	t->origin_priority = priority;
+  	t->wait_on_lock = NULL;
+
+	list_init(&t->donated); // 이사한 이니시코드
 }
 
 /* Chooses and returns the next thread to be scheduled.  Should
@@ -663,4 +672,66 @@ void Thread_Preempt()
 	if(cur->priority > front->priority) return;
 
 	thread_yield();
+}
+
+ // 이식함수 1
+bool
+thread_compare_donate_priority (const struct list_elem *l, 
+				const struct list_elem *s, void *aux UNUSED)
+{
+	return list_entry (l, struct thread, donate_elem)->priority
+		 > list_entry (s, struct thread, donate_elem)->priority;
+}
+
+// 이식함수 2
+
+void
+donate_priority (void)
+{
+  int depth;
+  struct thread *cur = thread_current ();
+
+  for (depth = 0; depth < 8; depth++){
+    if (!cur->wait_on_lock) break;
+      struct thread *holder = cur->wait_on_lock->holder;
+      holder->priority = cur->priority;
+      cur = holder;
+  }
+}
+
+void
+remove_with_lock (struct lock *lock) // 순회돌면서 락을 지우는 함수인데... 이게 필요없긴함
+// 어차피 lock을 thread로 가지고 있으므로 그냥 리무브 떄려도 됨.
+// 수정사항 1
+{
+  	struct list_elem *e;
+  	struct thread *cur = thread_current ();
+	// msg("%s %d", thread_current()->name, thread_current()->priority);
+  	for (e = list_begin (&cur->donated); e != list_end (&cur->donated); e = list_next (e)){
+    	struct thread *t = list_entry (e, struct thread, donate_elem);
+    if (t->wait_on_lock == lock)
+      list_remove (&t->donate_elem);
+  }
+}
+
+void
+refresh_priority (void) // 이식 3
+{
+  	struct thread *cur = thread_current ();
+
+	// msg("전 %s %d", thread_current()->name, thread_current()->priority);
+  	cur->priority = cur->origin_priority;
+	// msg("후 %s %d", thread_current()->name, thread_current()->priority);
+	
+
+  	if (!list_empty (&cur->donated)) {
+    	list_sort (&cur->donated, thread_compare_donate_priority, 0);
+
+	// msg("%s %d", thread_current()->name, thread_current()->priority);
+
+    struct thread *front = list_entry (list_front (&cur->donated), struct thread, donate_elem);
+    if (front->priority > cur->priority)
+		// msg("%s %d %d", thread_current()->name, thread_current()->priority, front->priority);
+      	cur->priority = front->priority;
+  }
 }
