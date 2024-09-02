@@ -102,9 +102,18 @@ struct thread {
 
 	struct list_elem donate_elem;
 
+	struct list_elem all_elem;
+
 	int origin_priority;
-	
-	struct lock* have_locks;
+
+	// struct lock* have_locks;
+
+	int nice;
+	int recent_cpu;
+	// int load_avg;
+
+
+
 	/* Shared between thread.c and synch.c. */
 	struct list_elem elem;              /* List element. */
 
@@ -179,3 +188,16 @@ remove_with_lock (struct lock *lock);
 
 void
 refresh_priority (void);
+
+struct list*
+ready_list_();
+
+void
+advanced_cpu_add (void);
+void advanced_priority(struct thread* t);
+void advanced_cpu(struct thread* t);
+int
+load_avg();
+
+struct list*
+all_list_();

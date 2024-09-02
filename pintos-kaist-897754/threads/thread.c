@@ -24,10 +24,14 @@
    Do not modify this value. */
 #define THREAD_BASIC 0xd42df210
 
+int load_avg_;
+
 /* List of processes in THREAD_READY state, that is, processes
    that are ready to run but not actually running. */
 static struct list ready_list;
 static struct list sleep_list;
+
+static struct list all_list; // 올스레드
 
 /* Idle thread. */
 static struct thread *idle_thread;
@@ -74,6 +78,26 @@ static tid_t allocate_tid (void);
  * somewhere in the middle, this locates the curent thread. */
 #define running_thread() ((struct thread *) (pg_round_down (rrsp ())))
 
+// 부동 소수점 계산
+#define FIX14 (1<<14) // 16384
+
+#define convert_to_fix(n) ((n) * FIX14)
+
+#define convert_to_integer_0(n) ((n) / FIX14) // 정수값을 진짜수로 변환 0에 가깝게
+#define convert_to_integer_n(n) ((n)>=0) ? (((n)+(FIX14/2))/FIX14) : (((n)-(FIX14/2))/FIX14) // 똑같음
+#define int_add(a,b) a+b
+#define int_minus(a,b) a-b
+#define int_fix_add(a,b) a+(b*FIX14)
+#define int_fix_minus(a,b) a-(b*FIX14)
+#define fix_mult(a,b) (((int64_t)(a))*(b) / FIX14)
+#define fix_int_mult(a,b) a*b
+
+#define fix_div(a,b) (((int64_t)(a)) *FIX14 / (b))
+
+#define fix_int_div(a,b) a/b
+
+
+
 
 // Global descriptor table for the thread_start.
 // Because the gdt will be setup after the thread_init, we should
@@ -111,13 +135,16 @@ thread_init (void) {
 	list_init (&ready_list);
 	list_init (&sleep_list);
 	list_init (&destruction_req);
-	
+	list_init(&all_list);
 
 	/* Set up a thread structure for the running thread. */
 	initial_thread = running_thread ();
 	init_thread (initial_thread, "main", PRI_DEFAULT);
 	initial_thread->status = THREAD_RUNNING;
 	initial_thread->tid = allocate_tid ();
+
+
+
 }
 
 /* Starts preemptive thread scheduling by enabling interrupts.
@@ -134,6 +161,7 @@ thread_start (void) {
 
 	/* Wait for the idle thread to initialize idle_thread. */
 	sema_down (&idle_started);
+	load_avg_ = 0;
 }
 
 /* Called by the timer interrupt handler at each timer tick.
@@ -215,6 +243,9 @@ thread_create (const char *name, int priority,
 	
 	/* Add to run queue. */
 	thread_unblock (t);
+	Thread_Preempt();
+
+
 
 	return tid;
 }
@@ -252,7 +283,7 @@ thread_unblock (struct thread *t) {
 	//list_push_back (&ready_list, &t->elem);
 	list_insert_ordered(&ready_list, &(t->elem), priority_less, NULL);
 	t->status = THREAD_READY;
-	Thread_Preempt();
+	
 	intr_set_level (old_level);
 }
 
@@ -310,8 +341,13 @@ thread_exit (void) {
 	/* Just set our status to dying and schedule another process.
 	   We will be destroyed during the call to schedule_tail(). */
 	intr_disable ();
+
+	list_remove(&thread_current()->all_elem);
 	do_schedule (THREAD_DYING);
 	NOT_REACHED ();
+
+
+
 }
 
 /* Yields the CPU.  The current thread is not put to sleep and
@@ -335,6 +371,8 @@ thread_yield (void) {
 void
 thread_set_priority (int new_priority) {
 
+	if (thread_mlfqs) return;
+
 	// 아무튼 락을 가지고 있는 상태에서 프리오리티가 변할떄도 홀드를 해야함 -> 릴리즈때 풀려야함
 	struct thread* cur = thread_current();
 
@@ -348,6 +386,7 @@ thread_set_priority (int new_priority) {
 	thread_current ()->origin_priority = new_priority;
 
 	thread_yield();
+	
 	}
 }
 
@@ -361,27 +400,63 @@ thread_get_priority (void) {
 void
 thread_set_nice (int nice UNUSED) {
 	/* TODO: Your implementation goes here */
+	thread_current()->nice = nice;
+	advanced_priority(thread_current());
+
+	Thread_Preempt();
 }
 
 /* Returns the current thread's nice value. */
 int
 thread_get_nice (void) {
 	/* TODO: Your implementation goes here */
-	return 0;
+	return thread_current()->nice;
 }
 
+
+int
+load_avg()
+{
+	int size;
+	if (thread_current() != idle_thread){ // 이게 맞나? 추후 점검
+
+		size = list_size(&ready_list) + 1 ;
+	}
+	else
+	{
+		size = list_size(&ready_list);
+	}
+		// 추후에 수정요망 정수형태로 반환할지 픽스드 상태로 반환할지 정수변환 해제
+
+	// msg("i live");
+	load_avg_ =  fix_mult(fix_div(convert_to_fix(59),convert_to_fix(60)), load_avg_)
+	 + fix_div(convert_to_fix(1),convert_to_fix(60)) * (size);
+}
+
+
 /* Returns 100 times the system load average. */
+
+
 int
 thread_get_load_avg (void) {
+
 	/* TODO: Your implementation goes here */
-	return 0;
+	// enum intr_level old_level = intr_disable ();
+	// struct thread* t = thread_current();
+	int ans = convert_to_integer_n(load_avg_ * 100);
+	// msg("%d",ans);
+	// intr_set_level (old_level);
+
+	return ans;
 }
 
 /* Returns 100 times the current thread's recent_cpu value. */
 int
 thread_get_recent_cpu (void) {
 	/* TODO: Your implementation goes here */
-	return 0;
+	int ans = convert_to_integer_n(thread_current()->recent_cpu * 100);
+
+	return ans;
 }
 
 /* Idle thread.  Executes when no other thread is ready to run.
@@ -393,6 +468,7 @@ thread_get_recent_cpu (void) {
    blocks.  After that, the idle thread never appears in the
    ready list.  It is returned by next_thread_to_run() as a
    special case when the ready list is empty. */
+
 static void
 idle (void *idle_started_ UNUSED) {
 	struct semaphore *idle_started = idle_started_;
@@ -449,9 +525,17 @@ init_thread (struct thread *t, const char *name, int priority) {
 
 	t->origin_priority = priority;
   	t->wait_on_lock = NULL;
-	t->have_locks = NULL;
+	t->nice = 0;
+	// t->load_avg = 0;
+	t->recent_cpu = name != "main" ? thread_current() -> recent_cpu : 0;
+	t->nice = name != "main" ? thread_current() -> nice : 0;
+	// t->have_locks = NULL;
 
+	
 	list_init(&t->donated); // 이사한 이니시코드
+
+	list_push_front(&all_list, &t->all_elem);
+
 }
 
 /* Chooses and returns the next thread to be scheduled.  Should
@@ -568,6 +652,7 @@ thread_launch (struct thread *th) {
  * This function modify current thread's status to status and then
  * finds another thread to run and switches to it.
  * It's not safe to call printf() in the schedule(). */
+
 static void
 do_schedule(int status) {
 	ASSERT (intr_get_level () == INTR_OFF);
@@ -661,6 +746,8 @@ void Thread_WakeUp()
 		// 일어나 코딩해야지
 		list_pop_front(&sleep_list);
 		thread_unblock(curThread);
+		if(!thread_mlfqs) Thread_Preempt();
+		
 	}
 }
 
@@ -676,14 +763,18 @@ static bool sleep_less (const struct list_elem *a_,
 
 void Thread_Preempt()
 {
+
+	// enum intr_level old_level = intr_disable ();
+
 	struct thread* cur = thread_current();
 	if(cur == idle_thread) return;
+	if(list_empty(&ready_list)) return;
 	struct thread* front = list_entry(list_front(&ready_list), struct thread, elem);
-	
 	// 우선순위 이상 없음. 넘겨
 	if(cur->priority > front->priority) return;
-
 	thread_yield();
+
+	// intr_set_level (old_level);
 }
 
  // 이식함수 1
@@ -721,8 +812,8 @@ remove_with_lock (struct lock *lock) // 순회돌면서 락을 지우는 함수�
 	// msg("%s %d", thread_current()->name, thread_current()->priority);
   	for (e = list_begin (&cur->donated); e != list_end (&cur->donated); e = list_next (e)){
     	struct thread *t = list_entry (e, struct thread, donate_elem);
-    if (t->wait_on_lock == lock)
-      list_remove (&t->donate_elem);
+		if (t->wait_on_lock == lock)
+		list_remove (&t->donate_elem);
   }
 }
 
@@ -741,3 +832,36 @@ refresh_priority (void) // 이식 3
       	cur->priority = front->priority;
   }
 }
+
+// 새로 선언
+
+struct list*
+ready_list_(){
+	return &ready_list;
+}
+
+struct list*
+all_list_(){
+	return &all_list;
+}
+
+void advanced_priority(struct thread* t)
+{
+	if (t == idle_thread) return ;
+	t->priority = convert_to_integer_n(int_fix_add(-(t->recent_cpu/4), PRI_MAX-(t->nice*2)));
+}
+
+void advanced_cpu(struct thread* t)
+{
+	if (t == idle_thread) return ;
+	// 여기서 숫자 변환을 해야 할까? 실수값을 가진 변수는 그냥 픽스드 상태로 두는게 나을지도
+	t->recent_cpu = int_fix_add(fix_mult(fix_div((load_avg_*2),int_fix_add(load_avg_*2,1)),t->recent_cpu), t->nice);
+}
+
+void
+advanced_cpu_add (void)
+{
+  if (thread_current () != idle_thread)
+	thread_current ()->recent_cpu = int_fix_add(thread_current ()->recent_cpu, 1);
+}
+

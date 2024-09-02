@@ -127,9 +127,42 @@ timer_print_stats (void) {
 static void
 timer_interrupt (struct intr_frame *args UNUSED) {
 	ticks++;
-	thread_tick ();
-	Thread_WakeUp();
+	thread_tick (); // 이건 왜잇지
+
+	if(thread_mlfqs){ // mlfqs 라면?
+
+		struct list_elem* l;
+
+		advanced_cpu_add(); // 더하기
+
+		// 4틱마다 모든 스레드의 priority를 다시 계산하기 위한 이프문
+		if (ticks%4 == 0) 
+		{
+			for (l = list_begin(all_list_()); l != list_end(all_list_()); l = list_next(l))
+			{
+				struct thread* t =  list_entry(l,struct thread, all_elem);
+
+				advanced_priority(t);
+			}
+		}
+		if (ticks % 100 == 0) // 1초마다..
+		{	
+			load_avg();
+			
+			for (l = list_begin(all_list_()); l != list_end(all_list_()); l = list_next(l))
+			{
+				struct thread* t = list_entry(l,struct thread, all_elem);
+
+				advanced_cpu(t);
+				
+			}
+		}
+	}
+	
+	Thread_WakeUp(); // sleep스레드 꺠우는 함수
 }
+
+
 
 /* Returns true if LOOPS iterations waits for more than one timer
    tick, otherwise false. */

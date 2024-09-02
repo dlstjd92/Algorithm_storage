@@ -148,6 +148,7 @@ sema_up (struct semaphore *sema) {
 		list_remove(max);
 		// sema_up(&list_entry(max, struct semaphore_elem, elem)->semaphore);
 		thread_unblock (list_entry (max, struct thread, elem));
+		Thread_Preempt();
 		// list_sort(&sema->waiters, sema_priority_less, NULL);
 		// thread_unblock (list_entry (list_pop_front (&sema->waiters),
 		// 			struct thread, elem));
@@ -259,6 +260,12 @@ lock_acquire (struct lock *lock) {
 	ASSERT (lock != NULL);
 	ASSERT (!intr_context ());
 	ASSERT (!lock_held_by_current_thread (lock));
+
+	if (thread_mlfqs) {
+		sema_down (&lock->semaphore);
+		lock->holder = thread_current ();
+		return ;
+	}
 	
 	struct thread *cur = thread_current ();
 
@@ -273,7 +280,7 @@ lock_acquire (struct lock *lock) {
   	sema_down (&lock->semaphore);
   
   	cur->wait_on_lock = NULL;
-	cur -> have_locks = lock;
+	// cur -> have_locks = lock;
   	lock->holder = cur;
 }
 
@@ -306,12 +313,18 @@ void
 lock_release (struct lock *lock) {
 	ASSERT (lock != NULL);
 	ASSERT (lock_held_by_current_thread (lock));
+
+	lock->holder = NULL; // 홀더 없에기
+	if (thread_mlfqs) {
+		sema_up (&lock->semaphore);
+		return ;
+	}
 	
 	remove_with_lock (lock);
 	// msg("%s %d", thread_current()->name, thread_current()->priority);
   	refresh_priority ();
 	
-	lock->holder = NULL; // 홀더 없에기
+	
 
 	sema_up (&lock->semaphore);
 }
