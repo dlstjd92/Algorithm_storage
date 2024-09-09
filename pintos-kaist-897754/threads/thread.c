@@ -82,7 +82,6 @@ static tid_t allocate_tid (void);
 #define FIX14 (1<<14) // 16384
 
 #define convert_to_fix(n) ((n) * FIX14)
-
 #define convert_to_integer_0(n) ((n) / FIX14) // 정수값을 진짜수로 변환 0에 가깝게
 #define convert_to_integer_n(n) ((n)>=0) ? (((n)+(FIX14/2))/FIX14) : (((n)-(FIX14/2))/FIX14) // 똑같음
 #define int_add(a,b) a+b
@@ -772,7 +771,7 @@ void Thread_Preempt()
 	struct thread* front = list_entry(list_front(&ready_list), struct thread, elem);
 	// 우선순위 이상 없음. 넘겨
 	if(cur->priority > front->priority) return;
-	thread_yield();
+	if (!intr_context()) thread_yield();
 
 	// intr_set_level (old_level);
 }

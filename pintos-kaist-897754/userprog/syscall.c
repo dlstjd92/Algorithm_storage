@@ -41,6 +41,92 @@ syscall_init (void) {
 void
 syscall_handler (struct intr_frame *f UNUSED) {
 	// TODO: Your implementation goes here.
+	int sys_num = f->R.rax; // 번호 받아서
+	// switch (sys_num)
+	// {
+	// case SYS_HALT:
+	// 	halt();
+	// 	break;
+	// case SYS_EXIT:
+	// 	exit(f->R.rdi);
+	// 	break;
+	// case SYS_FORK:
+	// 	/* code */
+	// 	break;
+	// case SYS_EXEC:
+	// 	/* code */
+	// 	break;
+	// case SYS_WAIT:
+	// 	/* code */
+	// 	break;
+	// case SYS_CREATE:
+		
+	// 	break;
+	// case SYS_REMOVE:
+	// 	/* code */
+	// 	break;
+	// case SYS_OPEN:
+	// 	/* code */
+	// 	break;
+	// case SYS_FILESIZE:
+	// 	/* code */
+	// 	break;
+	// case SYS_READ:
+	// 	/* code */
+	// 	break;
+	// case SYS_WRITE:
+	// 	/* code */
+	// 	break;
+	// case SYS_SEEK:
+	// 	/* code */
+	// 	break;
+	// case SYS_TELL:
+	// 	/* code */
+	// 	break;
+	// case SYS_CLOSE:
+	// 	/* code */
+	// 	break;
+	
+	// default:
+	// 	break;
+	// }
+
+
 	printf ("system call!\n");
 	thread_exit ();
+
 }
+
+// void halt (void) {
+// 	power_off();
+// }; // 0
+
+// void exit (int status) {
+
+// 	thread_exit();
+
+// 	return status;
+// }; // 1
+
+// pid_t fork (const char *thread_name)
+// {	
+	
+// } // 2
+
+// int exec (const char *file); // 3
+// int wait (pid_t); // 4
+// bool create (const char *file, unsigned initial_size)
+// {
+
+// } // 5
+// bool remove (const char *file)
+// {
+
+// } // 6
+// int open (const char *file); // 7
+// int filesize (int fd); // 8
+// int read (int fd, void *buffer, unsigned length); // 9
+// int write (int fd, const void *buffer, unsigned length); // 10
+// void seek (int fd, unsigned position); // 11
+// unsigned tell (int fd); // 12
+// void close (int fd); // 13

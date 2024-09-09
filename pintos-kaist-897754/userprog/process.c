@@ -164,6 +164,32 @@ int
 process_exec (void *f_name) {
 	char *file_name = f_name;
 	bool success;
+	char* s[128]; //= "  String to  tokenize. "; 이중 포인터? 놉 포인터 배열
+    char *token, *save_ptr;
+	bool name_check = 1;
+	int cnt = 0;
+
+	for (token = strtok_r (file_name, " ", &save_ptr); token != NULL;
+    token = strtok_r (NULL, " ", &save_ptr)) {
+
+    	printf ("'%s'\n", token); // 쪼개기 완벽함
+
+		if (name_check) {
+			
+			s[0] = token;
+			// printf("%s\n", s[cnt]);
+			file_name = token;
+			name_check = 0;
+			continue;
+		}
+
+		// printf("%d\n",cnt);
+
+		cnt++;
+		s[cnt] = token;
+		// printf("%s\n",s[cnt]);
+
+	}
 
 	/* We cannot use the intr_frame in the thread structure.
 	 * This is because when current thread rescheduled,
@@ -173,16 +199,65 @@ process_exec (void *f_name) {
 	_if.cs = SEL_UCSEG;
 	_if.eflags = FLAG_IF | FLAG_MBS;
 
+
+
 	/* We first kill the current context */
 	process_cleanup ();
 
 	/* And then load the binary */
-	success = load (file_name, &_if);
+	success = load (file_name, &_if); // 이놈이 메모리 싹 초기화 하고있었음 // 아님 아랫놈임
+
+	// printf("%s\n",s[cnt]);
 
 	/* If load failed, quit. */
-	palloc_free_page (file_name);
+	// palloc_free_page (file_name); // 이거 지우면 안될 것 같긴해.. // 상관없을것같기도
 	if (!success)
 		return -1;
+
+	// printf("%s\n",s[cnt]);
+
+	char* addr[128];
+	printf("스택 넣기 돌입\n");
+	///////////////////////////////////
+	for (int i = cnt; i >=0; i--)
+	{
+		// printf("%d 시작\n", i);
+		int arg_len = strlen(s[i]); // 길이재서
+		// printf("%d 1 %d\n", i, strlen(s[i]));
+		_if.rsp = _if.rsp - (arg_len+1); // 길이만큼 포인터 이동하고
+		// printf("%d %s\n", i,s[i]);
+		memcpy(_if.rsp, s[i], arg_len+1); // 크기만큼 카피
+		// printf("%d 3\n", i);
+		addr[i] = _if.rsp; // 주소값도 저장
+	}
+
+	// 주소 8배수 맞추기용...
+	while(_if.rsp % 8 != 0)
+	{
+		_if.rsp--;
+		*(uint8_t *) _if.rsp = 0;
+	}
+
+	// 주소값 넣기
+	for (int i = cnt; i >= 0; i--)
+	{
+		_if.rsp = _if.rsp - 8;
+		if (i == cnt) memset(_if.rsp, 0, sizeof(char**)); // 시작은 0으로 초기화?
+		else memcpy(_if.rsp, &addr[i],sizeof(char**));
+	}
+
+	// 스택 끝에 경계 설정?
+	_if.rsp = _if.rsp - 8;
+	memset(_if.rsp, 0, sizeof(void *)); 
+
+	_if.R.rdi = cnt;
+	_if.R.rsi = _if.rsp + 8;
+
+	///////////////////////////////////
+
+
+	// 스택 확인용
+	hex_dump(_if.rsp, _if.rsp, USER_STACK - _if.rsp, true);
 
 	/* Start switched process. */
 	do_iret (&_if);
@@ -204,6 +279,9 @@ process_wait (tid_t child_tid UNUSED) {
 	/* XXX: Hint) The pintos exit if process_wait (initd), we recommend you
 	 * XXX:       to add infinite loop here before
 	 * XXX:       implementing the process_wait. */
+
+	// while(1);
+
 	return -1;
 }
 
@@ -323,20 +401,20 @@ static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
 static bool
 load (const char *file_name, struct intr_frame *if_) {
 	struct thread *t = thread_current ();
-	struct ELF ehdr;
+	struct ELF ehdr; // ELF 파일의 프로그램 헤더
 	struct file *file = NULL;
 	off_t file_ofs;
 	bool success = false;
 	int i;
 
 	/* Allocate and activate page directory. */
-	t->pml4 = pml4_create ();
+	t->pml4 = pml4_create (); // 커널 페이지 메모리 할당
 	if (t->pml4 == NULL)
 		goto done;
-	process_activate (thread_current ());
+	process_activate (thread_current ()); // 말 그대로 프로세스 액티브
 
 	/* Open executable file. */
-	file = filesys_open (file_name);
+	file = filesys_open (file_name); // 파일 열기 
 	if (file == NULL) {
 		printf ("load: %s: open failed\n", file_name);
 		goto done;
@@ -352,7 +430,7 @@ load (const char *file_name, struct intr_frame *if_) {
 			|| ehdr.e_phnum > 1024) {
 		printf ("load: %s: error loading executable\n", file_name);
 		goto done;
-	}
+	} // 여기서 예외상황들 싹 처리
 
 	/* Read program headers. */
 	file_ofs = ehdr.e_phoff;
@@ -413,6 +491,8 @@ load (const char *file_name, struct intr_frame *if_) {
 
 	/* Start address. */
 	if_->rip = ehdr.e_entry;
+
+
 
 	/* TODO: Your code goes here.
 	 * TODO: Implement argument passing (see project2/argument_passing.html). */
