@@ -29,6 +29,12 @@ typedef int tid_t;
 #define PRI_DEFAULT 31                  /* Default priority. */
 #define PRI_MAX 63                      /* Highest priority. */
 
+// 새로 추가함
+#define FDT_PAGES 3
+#define FDCOUNT_LIMIT FDT_PAGES*(1<<9)
+
+
+
 /* A kernel thread or user process.
  *
  * Each thread structure is stored in its own 4 kB page.  The
@@ -111,15 +117,27 @@ struct thread {
 	int nice;
 	int recent_cpu;
 	// int load_avg;
+	struct intr_frame parent_if;
+	struct list child_list;
+	struct list_elem child_elem;
 
-
-
+	struct semaphore load_sema;
+	struct semaphore exit_sema; 
+	struct semaphore wait_sema;
+	
+	struct file *running;
+	
 	/* Shared between thread.c and synch.c. */
 	struct list_elem elem;              /* List element. */
 
 #ifdef USERPROG
 	/* Owned by userprog/process.c. */
 	uint64_t *pml4;                     /* Page map level 4 */
+	struct file *fd_table[10];
+	int fd_index;
+	int p_status;
+
+
 #endif
 #ifdef VM
 	/* Table for whole virtual memory owned by thread. */

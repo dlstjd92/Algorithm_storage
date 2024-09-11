@@ -121,6 +121,8 @@ check_file_handle (int fd,
      may still be able to get more information by reading the
      file. */
   file_size = filesize (fd);
+
+  
   if (file_size != size)
     msg ("size of %s (%zu) differs from expected (%zu)",
           file_name, file_size, size);
@@ -153,10 +155,10 @@ check_file_handle (int fd,
 }
 
 void
-check_file (const char *file_name, const void *buf, size_t size) 
+check_file (const char *file_name, const void *buf, size_t size)
 {
   int fd;
-
+  // printf("%d", fd = open(file_name));
   CHECK ((fd = open (file_name)) > 1, "open \"%s\" for verification",
          file_name);
   check_file_handle (fd, file_name, buf, size);

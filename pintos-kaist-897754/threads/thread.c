@@ -13,6 +13,7 @@
 #include "intrinsic.h"
 #ifdef USERPROG
 #include "userprog/process.h"
+// #include "../include/lib/user/syscall.h"
 #endif
 
 /* Random value for struct thread's `magic' member.
@@ -227,6 +228,24 @@ thread_create (const char *name, int priority,
 	init_thread (t, name, priority);
 	tid = t->tid = allocate_tid ();
 
+	#ifdef USERPROG
+
+   	// t->fd_table = palloc_get_multiple(PAL_ZERO, FDT_PAGES);
+
+   	if (t->fd_table == NULL)
+    	return TID_ERROR;
+
+   	t->p_status = 0; // exit_status 초기화
+
+   	// t->fd_index = 3;
+   	t->fd_table[0] = 0; // stdin 예약된 자리 (dummy)
+   	t->fd_table[1] = 1; // stdout 예약된 자리 (dummy)
+   	t->fd_table[2] = 2; // stderr 예약된 자리 (dummy)
+
+   	list_push_back(&thread_current()->child_list, &t->child_elem);
+
+	#endif
+
 	/* Call the kernel_thread if it scheduled.
 	 * Note) rdi is 1st argument, and rsi is 2nd argument. */
 	t->tf.rip = (uintptr_t) kernel_thread;
@@ -344,8 +363,6 @@ thread_exit (void) {
 	list_remove(&thread_current()->all_elem);
 	do_schedule (THREAD_DYING);
 	NOT_REACHED ();
-
-
 
 }
 
@@ -525,15 +542,27 @@ init_thread (struct thread *t, const char *name, int priority) {
 	t->origin_priority = priority;
   	t->wait_on_lock = NULL;
 	t->nice = 0;
-	// t->load_avg = 0;
+	
 	t->recent_cpu = name != "main" ? thread_current() -> recent_cpu : 0;
 	t->nice = name != "main" ? thread_current() -> nice : 0;
-	// t->have_locks = NULL;
 
 	
 	list_init(&t->donated); // 이사한 이니시코드
-
+	list_init(&t->child_list);
 	list_push_front(&all_list, &t->all_elem);
+
+	t->running = NULL;
+
+	sema_init(&t->wait_sema,0);
+	sema_init(&t->exit_sema,0);
+	sema_init(&t->load_sema,0);
+
+	#ifdef USERPROG
+	/* Owned by userprog/process.c. */
+	// t->fd_table = malloc(sizeof(struct file) *128);
+	memset(t->fd_table, 0, sizeof(t->fd_table));
+	t->fd_index = 3;
+	#endif
 
 }
 

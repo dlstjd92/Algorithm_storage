@@ -8,6 +8,9 @@
         "new": "c",
         "ostream": "c",
         "sstream": "c",
-        "streambuf": "c"
+        "streambuf": "c",
+        "filesys.h": "c",
+        "process.h": "c",
+        "syscall.h": "c"
     }
 }
