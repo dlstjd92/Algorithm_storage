@@ -181,7 +181,7 @@ __do_fork (void *aux) {
 	 * TODO:       from the fork() until this function successfully duplicates
 	 * TODO:       the resources of parent.*/
 
-	for (int i = 0; i <10; i++)
+	for (int i = 0; i <60; i++)
 	{
 		struct file *file = parent->fd_table[i];
 		if (file == NULL) continue;
@@ -213,42 +213,13 @@ process_exec (void *f_name) {
 	bool name_check = 1;
 	int cnt = 0;
 
-	// char *token, *save_ptr;
-    // int argc = 0;
-    // char *argv[128]; 
-
     token = strtok_r(file_name, " ", &save_ptr);
-    // argv[argc] = token;
-
-    //argv[argc] = token; //arg_list[0] = file_name_first
 
     while(token != NULL){
         s[cnt] = token;
         token = strtok_r(NULL, " ", &save_ptr);
         cnt++;
     }
-
-
-	// for (token = strtok_r (file_name, " ", &save_ptr); token != NULL;
-    // token = strtok_r (NULL, " ", &save_ptr)) {
-
-    // 	// printf ("'%s'\n", token); // 쪼개기 완벽함
-
-	// 	if (name_check) {
-	// 		s[0] = token;
-	// 		printf("%s\n", s[cnt]);
-	// 		file_name = token;
-
-	// 		name_check = 0;
-	// 		cnt++;
-	// 		continue;
-	// 	}
-
-		
-	// 	s[cnt] = token;
-	// 	cnt++;
-	// 	// printf("%s\n",s[cnt]);
-	// }
 
 	/* We cannot use the intr_frame in the thread structure.
 	 * This is because when current thread rescheduled,
@@ -305,7 +276,7 @@ process_exec (void *f_name) {
 
 	// 스택 끝에 경계 설정?
 	_if.rsp = _if.rsp - 8;
-	memset(_if.rsp, 0, sizeof(void *)); 
+	memset(_if.rsp, 0, sizeof(void *));
 
 	_if.R.rdi = cnt;
 	_if.R.rsi = _if.rsp + 8;
@@ -338,8 +309,11 @@ struct thread* get_child_process(tid_t child_tid)
 	for (e = list_begin(child_list);e != list_end(child_list); e = list_next(e))
 	{
 		struct thread *child = list_entry(e, struct thread, child_elem);
-
-		if (child->tid == child_tid) return child;
+		
+		if (child->tid == child_tid) {
+			// printf("%d ", child_tid);
+			return child;
+		}
 	}
 
 	return NULL;
@@ -356,8 +330,15 @@ process_wait (tid_t child_tid) {
 	// while(i<(1<<30)) i ++;
 	// i = 0;
 	// while(i<(1<<30)) i ++;
+	// msg(1);
 	struct thread *child = get_child_process(child_tid);
-	if (child == NULL) return -1;
+	// printf(2);
+	if (child == NULL) {
+		printf("에러탈출");
+		return -1;
+	}
+	// printf(3);
+
 	sema_down(&child->wait_sema);
 
 	list_remove(&child->child_elem);
@@ -397,9 +378,13 @@ process_exit (void) {
 	#ifdef USERPROG
 	// if (!is_kernel_vaddr(cur)) {  // 커널 모드가 아닌 경우에만 출력
         
-    }
+    // }
 	#endif
-
+	if (cur->running != NULL) 
+	{
+		file_allow_write(cur->running);
+		file_close(cur->running);
+	}
 	// printf("222222\n");
 	sema_up(&cur->wait_sema);
 
@@ -408,6 +393,8 @@ process_exit (void) {
 
 	// printf("555555\n");
 	process_cleanup ();
+
+	
 
 	
 }
@@ -529,11 +516,24 @@ load (const char *file_name, struct intr_frame *if_) {
 	process_activate (thread_current ()); // 말 그대로 프로세스 액티브
 
 	/* Open executable file. */
-	file = filesys_open (file_name); // 파일 열기 
+	// file = filesys_open (file_name); // 파일 열기 
+
+	if (t->running != NULL)
+	{
+		file_allow_write(t->running);
+		t->running = NULL;
+	}
+
+	/* Open executable file. */
+	file = filesys_open(file_name);
+	
 	if (file == NULL) {
 		printf ("load: %s: open failed\n", file_name);
 		goto done;
 	}
+
+	file_deny_write(file);
+	t->running = file;
 
 	/* Read and verify executable header. */
 	if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
@@ -600,9 +600,7 @@ load (const char *file_name, struct intr_frame *if_) {
 		}
 	}
 
-	t->running = file;
 
-	file_deny_write(file);
 
 
 	/* Set up stack. */
@@ -619,7 +617,7 @@ load (const char *file_name, struct intr_frame *if_) {
 
 done:
 	/* We arrive here whether the load is successful or not. */
-	file_close (file);
+	// file_close (file);
 	return success;
 }
 

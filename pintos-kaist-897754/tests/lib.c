@@ -5,6 +5,8 @@
 #include <string.h>
 #include <syscall.h>
 
+// #include "../threads/thread.c"
+
 const char *test_name;
 bool quiet = false;
 
@@ -80,7 +82,7 @@ void
 exec_children (const char *child_name, pid_t pids[], size_t child_cnt) 
 {
   size_t i;
-
+  
   for (i = 0; i < child_cnt; i++) 
     {
       char cmd_line[128];
@@ -93,6 +95,7 @@ exec_children (const char *child_name, pid_t pids[], size_t child_cnt)
       }
       
     }
+    
 }
 
 void
@@ -102,7 +105,11 @@ wait_children (pid_t pids[], size_t child_cnt)
   
   for (i = 0; i < child_cnt; i++) 
     {
+      // printf("여기? %d", pids[i]);
       int status = wait (pids[i]);
+
+      // printf("웨잇 칠드런");
+
       CHECK (status == (int) i,
              "wait for child %zu of %zu returned %d (expected %zu)",
              i + 1, child_cnt, status, i);

@@ -11,6 +11,7 @@
 #include "../include/filesys/file.h"
 #include "../include/userprog/process.h"
 #include "../include/threads/palloc.h"
+// #include "../filesys/file.c"
 
 typedef int pid_t;
 
@@ -32,6 +33,7 @@ void seek (int fd, unsigned position);
 unsigned tell (int fd);
 void close (int fd);
 void check_address(const uint64_t *addr);
+void remove_file_from_fdt(int fd);
 /* System call.
  *
  * Previously system call services was handled by the interrupt handler
@@ -44,13 +46,14 @@ void check_address(const uint64_t *addr);
 #define MSR_STAR 0xc0000081         /* Segment selector msr */
 #define MSR_LSTAR 0xc0000082        /* Long mode SYSCALL target */
 #define MSR_SYSCALL_MASK 0xc0000084 /* Mask for the eflags */
+struct lock filesys_lock;
 
 void
 syscall_init (void) {
 	write_msr(MSR_STAR, ((uint64_t)SEL_UCSEG - 0x10) << 48  |
 			((uint64_t)SEL_KCSEG) << 32);
 	write_msr(MSR_LSTAR, (uint64_t) syscall_entry);
-
+	lock_init(&filesys_lock);
 	/* The interrupt service rountine should not serve any interrupts
 	 * until the syscall_entry swaps the userland stack to the kernel
 	 * mode stack. Therefore, we masked the FLAG_FL. */
@@ -58,13 +61,16 @@ syscall_init (void) {
 			FLAG_IF | FLAG_TF | FLAG_DF | FLAG_IOPL | FLAG_AC | FLAG_NT);
 }
 
-
+struct semaphore filesys_sema;
 
 /* The main system call interface */
 void
 syscall_handler (struct intr_frame *f UNUSED) {
 	// TODO: Your implementation goes here.
 	int sys_num = f->R.rax; // 번호 받아서
+028931
+	// sema_init(&filesys_sema,1);
+
 	switch (sys_num)
 	{
 	case SYS_HALT:
@@ -101,13 +107,13 @@ syscall_handler (struct intr_frame *f UNUSED) {
 		f->R.rax = write(f->R.rdi, f->R.rsi, f->R.rdx);
 		break;
 	case SYS_SEEK:
-		/* code */
+		seek(f->R.rdi,f->R.rsi);
 		break;
 	case SYS_TELL:
-		/* code */
+		f->R.rax = tell(f->R.rdi);
 		break;
 	case SYS_CLOSE:
-		/* code */
+		_close(f->R.rdi);
 		break;
 	
 	default:
@@ -127,6 +133,10 @@ void exit (int status) {
 	
 	struct thread *cur = thread_current();
 	cur->p_status = status;
+	// printf(cur->name);
+	// for (int i = 2; i < cur->fd_index; i++)
+	// 	_close(i);
+
 	printf("%s: exit(%d)\n", cur->name, cur->p_status);
 	thread_exit();
 
@@ -136,6 +146,7 @@ void exit (int status) {
 pid_t fork (const char *thread_name, struct intr_frame *f)
 {	
 	struct thread *cur = thread_current();
+	// printf("포크");
 	return process_fork(thread_name, f);
 } // 2
 
@@ -155,8 +166,13 @@ int exec (const char *file)
 
 int wait (pid)
 	{	
-		// printf("하이");
-		return process_wait(pid);
+
+		// printf("하이 %d ", pid);
+		struct thread *cur = thread_current();
+		cur->debug = pid;
+		int a = process_wait(pid);
+		
+		return a;
 	} // 4
 
 bool create (const char *file, unsigned initial_size)
@@ -176,65 +192,83 @@ bool remove (const char *file)
 
 int open (const char *file)
 {
-
-	// printf("%s", file);
 	check_address(file);
 	
+	// sema_down(&filesys_sema);
+	// lock_acquire(&filesys_lock);
+	
+	struct thread *cur = thread_current();
+	// printf("오픈 %d", cur->debug);
+	
+	printf("is have to stuff : %s\n", file);
 	struct file *open_file = filesys_open(file);
-	// printf("%d",open_file); // 0임
 
-	// printf("%s 1234", file);
-	if (open_file == NULL) return -1;
-	// printf("%s 456", file);
+	if (open_file == NULL) {
+		printf("is here?\n");
+		return -1;
+	}
+
+	// if (!strcmp(thread_name(), file)) file_deny_write(open_file);
+
 	int fd = to_fd_table(open_file);
-	// printf("%s 789 %d", file, fd);
+
 	if (fd == -1)
 	{
 		file_close(open_file);
 	}
 
+	// lock_release(&filesys_lock);
+	// sema_up(&filesys_sema);
 	return fd;
 } // 7
 
 int filesize (int fd)
 {	
-	if (fd<0 || fd >= FDCOUNT_LIMIT) return -1;
+	if (fd < 0 || fd >= FDCOUNT_LIMIT) return -1;
 	struct thread *cur = thread_current();
 	struct file *open_file = cur->fd_table[fd];
 	return file_length(open_file);
 } // 8
+
+struct lock lock;
 
 int read (int fd, void *buffer, unsigned length)
 {
 
 	check_address(buffer);
 	
-
 	struct thread *cur = thread_current();
-	struct lock lock;
-	lock_init(&lock);
+	// sema_down(&filesys_sema);
+	// lock_acquire(&filesys_lock);
+	
+	// lock_init(&lock);
 
 	struct file *open_file = cur->fd_table[fd];
-	
+	// printf("여긴오나?");
 	
 	// 아직 필드 디스크립터 초기화랑 012 설정 안해줌! <- 얼추 함
 	if (fd == 0)
 	{	
 		*(char*)buffer = input_getc();
+		// printf("fd가 0");
 	}	
 	else
 	{
-		if (fd < 2 || fd > 10) return -1;
-		if (open_file == NULL) return -1; 
-		lock_acquire(&lock); // ????
+		if (fd < 2 || fd > 60) return -1;
+		if (open_file == NULL) return -1;
+		// printf("여긴오나?2");
+
+		// lock_acquire(&lock); // ????
 
 		// 예외 필요함
-
 		length = file_read(open_file,buffer,length);
-		lock_release(&lock);// ????
+		// lock_release(&lock);// ????
+		// printf("%d ", length);
 		
 	}
 
+	// lock_release(&filesys_lock);
+	// sema_up(&filesys_sema);
 	return length;
 
 } // 9
@@ -242,32 +276,76 @@ int read (int fd, void *buffer, unsigned length)
 int write (int fd, const void *buffer, unsigned length)
 {	
 
-
+	// printf(" 체크0");
 	check_address(buffer);
-	
-
+	// printf(" 체크1");
+	// lock_acquire(&filesys_lock);
+	// sema_down(&filesys_sema);
 	struct thread *cur = thread_current();
 	struct file *open_file = cur->fd_table[fd];
-
+	// printf(" 체크2");
 	if (fd == 1)
 	{
 		putbuf(buffer, length);
-	}
+	}	
 	else
 	{	
-		if (fd < 2 || fd > 10) return -1;
+		if (fd < 2 || fd > 60) return -1;
 		if (open_file == NULL) return -1;
+		// printf(" 체크3");
 		length = file_write(open_file, buffer, length);
 	}
+	// sema_up(&cur->exit_sema);
+	// printf(" 체크4");
 
+	// lock_release(&filesys_lock);
+	// sema_up(&filesys_sema);
 	return length;
 
 } // 10
 
-void seek (int fd, unsigned position); // 11
-unsigned tell (int fd); // 12
-void close (int fd); // 13
+void seek (int fd, unsigned position)
+{
+	struct thread *cur = thread_current();
+	struct file *seek_file = cur->fd_table[fd];
+	// printf("여긴?1");
+	if (seek_file <= 2) {		// 초기값 2로 설정. 0: 표준 입력, 1: 표준 출력
+		// printf("여긴?2");
+		return;
+	}
 
+	seek_file->pos = position;
+
+} // 11
+
+unsigned tell (int fd)
+{
+	struct thread *cur = thread_current();
+	struct file *tell_file = cur->fd_table[fd];
+	if (tell_file <= 2) {
+		return;
+	}
+	return file_tell(tell_file);
+} // 12
+void _close (int fd)
+{
+	struct thread *cur = thread_current();
+	struct file *fileobj = cur->fd_table[fd];
+	if (fileobj == NULL) {
+		return;
+	}
+
+	// struct thread *cur = thread_current();
+	printf("클로즈 잘 됨?");
+	if (cur->fd_table[fd] != NULL) {
+		file_close(cur->fd_table[fd]);
+		printf("클로즈 잘 됨");
+	}
+	
+
+	remove_file_from_fdt(fd);
+
+} // 13
 
 void check_address(const uint64_t *addr)	
 {
@@ -291,7 +369,6 @@ int to_fd_table(struct file *file)
 
 	while (cur->fd_index < FDCOUNT_LIMIT && fd_table[cur->fd_index])
 	{	
-		
 		cur->fd_index++;
 	}
 	
@@ -302,4 +379,15 @@ int to_fd_table(struct file *file)
 	fd_table[cur->fd_index] = file;
 
 	return cur->fd_index;
+}
+
+void remove_file_from_fdt(int fd)
+{
+	struct thread *cur = thread_current();
+
+	// Error - invalid fd
+	if (fd < 0 || fd >= FDCOUNT_LIMIT)
+		return;
+
+	cur->fd_table[fd] = NULL;
 }

@@ -130,10 +130,11 @@ struct thread {
 	/* Shared between thread.c and synch.c. */
 	struct list_elem elem;              /* List element. */
 
+	int debug;
 #ifdef USERPROG
 	/* Owned by userprog/process.c. */
 	uint64_t *pml4;                     /* Page map level 4 */
-	struct file *fd_table[10];
+	struct file *fd_table[60];
 	int fd_index;
 	int p_status;
 

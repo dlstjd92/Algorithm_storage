@@ -11,6 +11,16 @@
         "streambuf": "c",
         "filesys.h": "c",
         "process.h": "c",
-        "syscall.h": "c"
+        "syscall.h": "c",
+        "file.h": "c",
+        "off_t.h": "c",
+        "debug.h": "c",
+        "palloc.h": "c",
+        "interrupt.h": "c",
+        "inode.h": "c",
+        "malloc.h": "c",
+        "stdbool.h": "c",
+        "thread.h": "c",
+        "thread": "c"
     }
 }
